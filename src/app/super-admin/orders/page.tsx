@@ -316,7 +316,12 @@ export default function SuperAdminOrdersPage() {
                       <tr key={order.id} className="hover:bg-gray-50">
                         <td className="px-4 py-4">
                           <div>
-                            <div className="font-semibold">#{order.orderNumber}</div>
+                            <button
+                              onClick={() => window.location.href = `/super-admin/orders/${order.id}`}
+                              className="font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                            >
+                              #{order.orderNumber}
+                            </button>
                             <div className="text-sm text-gray-500">
                               {order.items.length} item(s)
                             </div>
