@@ -1,0 +1,230 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  CUSTOMER
+  CALL_AGENT
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum MediaKind {
+  IMAGE
+  VIDEO
+}
+
+enum OrderStatus {
+  PENDING
+  CALL_ASSIGNED
+  CALL_CONFIRMED
+  PACKED
+  DELIVERY_AGENT_SELECTED
+  DELIVERY_ASSIGNED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
+
+enum DeliveryStatus {
+  AVAILABLE
+  BUSY
+  OFFLINE
+}
+
+model User {
+  id              String      @id @default(cuid())
+  email           String      @unique
+  name            String?
+  phone           String?     @unique
+  passwordHash    String
+  role            Role        @default(CUSTOMER)
+  status          UserStatus  @default(ACTIVE)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  adminCreatedById String?
+  adminCreatedBy   User?       @relation("AdminCreatedBy", fields: [adminCreatedById], references: [id])
+  adminsCreated    User[]      @relation("AdminCreatedBy")
+
+  orders        Order[]
+  products      Product[]
+  visits        VisitEvent[]
+  auditLogs     AuditLog[]    @relation("AuditActor")
+  orderStatusChanges OrderStatusChange[]
+  
+  // Call agent relations
+  callAttempts CallAttempt[]
+  callAssignedOrders Order[]  @relation("CallAssignedTo")
+  callAssignedByOrders Order[] @relation("CallAssignedBy")
+}
+
+model Product {
+  id           String         @id @default(cuid())
+  title        String
+  slug         String         @unique
+  description  String
+  priceCents   Int
+  currency     String         @default("BDT")
+  stock        Int            @default(0)
+  status       ProductStatus  @default(DRAFT)
+  createdById  String
+  createdBy    User           @relation(fields: [createdById], references: [id])
+  media        ProductMedia[]
+  orderItems   OrderItem[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ProductMedia {
+  id        String     @id @default(cuid())
+  productId String
+  product   Product    @relation(fields: [productId], references: [id])
+  kind      MediaKind
+  url       String
+  alt       String?
+  position  Int        @default(0)
+  createdAt DateTime   @default(now())
+}
+
+model Order {
+  id               String        @id @default(cuid())
+  // For MySQL, we cannot have a second autoincrement column. Use a unique
+  // integer order number that is assigned in application code/transaction.
+  orderNumber      Int           @unique @default(0)
+  customerId       String
+  customer         User          @relation(fields: [customerId], references: [id])
+  status           OrderStatus   @default(PENDING)
+  items            OrderItem[]
+  totalCents       Int
+  currency         String        @default("BDT")
+  // Call confirmation phase
+  callAssignedToId   String?
+  callAssignedTo     User?        @relation("CallAssignedTo", fields: [callAssignedToId], references: [id])
+  callAssignedById   String?
+  callAssignedBy     User?        @relation("CallAssignedBy", fields: [callAssignedById], references: [id])
+  callAssignedAt     DateTime?
+  callConfirmedAt    DateTime?
+  callNotes          String?
+
+  // Delivery phase
+  selectedDeliveryAgentId String?
+  selectedDeliveryAgent   DeliveryAgent? @relation("SelectedDeliveryAgent", fields: [selectedDeliveryAgentId], references: [id])
+  deliveryAgentId         String?
+  deliveryAgent           DeliveryAgent? @relation(fields: [deliveryAgentId], references: [id])
+  
+  statusHistory    OrderStatusChange[]
+  callAttempts     CallAttempt[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([callAssignedAt])
+}
+
+model OrderItem {
+  id              String  @id @default(cuid())
+  orderId         String
+  order           Order   @relation(fields: [orderId], references: [id])
+  productId       String
+  product         Product @relation(fields: [productId], references: [id])
+  quantity        Int
+  unitPriceCents  Int
+}
+
+model OrderStatusChange {
+  id          String      @id @default(cuid())
+  orderId     String
+  order       Order       @relation(fields: [orderId], references: [id])
+  from        OrderStatus?
+  to          OrderStatus
+  changedById String
+  changedBy   User        @relation(fields: [changedById], references: [id])
+  createdAt   DateTime    @default(now())
+}
+
+model CallAttempt {
+  id        String      @id @default(cuid())
+  orderId   String
+  order     Order       @relation(fields: [orderId], references: [id])
+  agentId   String?
+  agent     User?       @relation(fields: [agentId], references: [id])
+  outcome   CallOutcome
+  notes     String?
+  createdAt DateTime    @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+enum CallOutcome {
+  CONFIRMED
+  UNREACHABLE
+  CUSTOMER_CANCELLED
+  WRONG_NUMBER
+}
+
+model DeliveryAgent {
+  id        String         @id @default(cuid())
+  name      String
+  phone     String         @unique
+  status    DeliveryStatus @default(AVAILABLE)
+  active    Boolean        @default(true)
+  orders           Order[]
+  ordersSelected   Order[] @relation("SelectedDeliveryAgent")
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model VisitEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  sessionId String
+  path      String
+  referrer  String?
+  userAgent String?
+  ipHash    String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id])
+  action     String
+  targetType String?
+  targetId   String?
+  meta       Json?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+}
