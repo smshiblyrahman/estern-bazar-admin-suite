@@ -5,17 +5,20 @@ import { createAuditLog } from '@/lib/audit';
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; mediaId: string } }
+  { params }: { params: Promise<{ id: string; mediaId: string }> }
 ) {
   try {
     const { user } = await requireAuth();
+    const { id: userId } = await params;
+    const { id: productId } = await params;
+    const { id: orderId } = await params;
     assertAdminOrSuper(user.role);
 
     // Check if media exists and belongs to the product
     const media = await prisma.productMedia.findFirst({
       where: { 
-        id: params.mediaId,
-        productId: params.id 
+        id: mediaId,
+        productId: orderId 
       },
       include: {
         product: {
@@ -30,7 +33,7 @@ export async function DELETE(
 
     // Delete the media
     await prisma.productMedia.delete({
-      where: { id: params.mediaId },
+      where: { id: mediaId },
     });
 
     // Create audit log
@@ -38,9 +41,9 @@ export async function DELETE(
       actorId: user.id,
       action: 'DELETE',
       targetType: 'ProductMedia',
-      targetId: params.mediaId,
+      targetId: mediaId,
       metadata: { 
-        productId: params.id,
+        productId: orderId,
         productTitle: media.product.title,
         mediaUrl: media.url,
         mediaType: media.type,

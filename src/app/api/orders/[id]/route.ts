@@ -7,13 +7,16 @@ import { isValidStatusTransition } from '@/lib/utils/order-workflow';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { user } = await requireAuth();
+    const { id: userId } = await params;
+    const { id: productId } = await params;
+    const { id: orderId } = await params;
   assertAdminOrSuper(user.role);
 
   const order = await prisma.order.findUnique({
-    where: { id: params.id },
+    where: { id: orderId },
     include: {
       customer: {
         select: { id: true, name: true, email: true, phone: true }
@@ -48,9 +51,12 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { user } = await requireAuth();
+    const { id: userId } = await params;
+    const { id: productId } = await params;
+    const { id: orderId } = await params;
   assertAdminOrSuper(user.role);
 
   const body = await request.json();
@@ -68,7 +74,7 @@ export async function PATCH(
 
   // Check if order exists
   const existingOrder = await prisma.order.findUnique({
-    where: { id: params.id },
+    where: { id: orderId },
     select: { id: true, status: true, orderNumber: true }
   });
 
@@ -107,7 +113,7 @@ export async function PATCH(
   const updatedOrder = await prisma.$transaction(async (tx) => {
     // Update the order
     const order = await tx.order.update({
-      where: { id: params.id },
+      where: { id: orderId },
       data: {
         status: data.status,
         deliveryAgentId: data.deliveryAgentId,
@@ -134,7 +140,7 @@ export async function PATCH(
     if (data.status && data.status !== existingOrder.status) {
       await tx.orderStatusChange.create({
         data: {
-          orderId: params.id,
+          orderId: orderId,
           fromStatus: existingOrder.status,
           toStatus: data.status,
           reason: data.statusReason || `Status changed to ${data.status}`,
@@ -165,14 +171,17 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { user } = await requireAuth();
+    const { id: userId } = await params;
+    const { id: productId } = await params;
+    const { id: orderId } = await params;
   assertAdminOrSuper(user.role);
 
   // Check if order exists and can be deleted
   const order = await prisma.order.findUnique({
-    where: { id: params.id },
+    where: { id: orderId },
     select: { id: true, status: true, orderNumber: true }
   });
 
@@ -189,7 +198,7 @@ export async function DELETE(
 
   // Delete order (cascade should handle related records)
   await prisma.order.delete({
-    where: { id: params.id }
+    where: { id: orderId }
   });
 
   // Create audit log

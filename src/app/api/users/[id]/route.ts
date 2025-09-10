@@ -7,13 +7,16 @@ import bcrypt from 'bcrypt';
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { user } = await requireAuth();
+    const { id: userId } = await params;
+    const { id: productId } = await params;
+    const { id: orderId } = await params;
   assertAdminOrSuper(user.role);
 
   const targetUser = await prisma.user.findUnique({
-    where: { id: params.id },
+    where: { id: orderId },
     select: {
       id: true,
       email: true,
@@ -43,9 +46,12 @@ export async function GET(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { user } = await requireAuth();
+    const { id: userId } = await params;
+    const { id: productId } = await params;
+    const { id: orderId } = await params;
   assertAdminOrSuper(user.role);
   
   const body = await req.json();
@@ -60,7 +66,7 @@ export async function PATCH(
   }
 
   const targetUser = await prisma.user.findUnique({
-    where: { id: params.id },
+    where: { id: orderId },
     select: { id: true, role: true, email: true, name: true },
   });
 
@@ -74,7 +80,7 @@ export async function PATCH(
   }
 
   const updatedUser = await prisma.user.update({
-    where: { id: params.id },
+    where: { id: orderId },
     data: validation.data,
     select: {
       id: true,
@@ -106,13 +112,16 @@ export async function PATCH(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { user } = await requireAuth();
+    const { id: userId } = await params;
+    const { id: productId } = await params;
+    const { id: orderId } = await params;
   assertSuper(user.role); // Only SUPER_ADMIN can delete users
 
   const targetUser = await prisma.user.findUnique({
-    where: { id: params.id },
+    where: { id: orderId },
     select: { id: true, role: true, email: true, name: true },
   });
 
@@ -131,7 +140,7 @@ export async function DELETE(
   }
 
   await prisma.user.delete({
-    where: { id: params.id },
+    where: { id: orderId },
   });
 
   // Create audit log

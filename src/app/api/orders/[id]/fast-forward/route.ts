@@ -7,9 +7,12 @@ import { getNextLogicalStatus, isValidStatusTransition } from '@/lib/utils/order
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { user } = await requireAuth();
+    const { id: userId } = await params;
+    const { id: productId } = await params;
+    const { id: orderId } = await params;
   assertAdminOrSuper(user.role);
 
   const body = await request.json();
@@ -27,7 +30,7 @@ export async function POST(
 
   // Get current order status
   const order = await prisma.order.findUnique({
-    where: { id: params.id },
+    where: { id: orderId },
     select: { 
       id: true, 
       status: true, 
@@ -70,7 +73,7 @@ export async function POST(
     // From CALL_ASSIGNED: only proceed if there's a CONFIRMED call attempt
     const confirmedAttempt = await prisma.callAttempt.findFirst({
       where: {
-        orderId: params.id,
+        orderId: orderId,
         outcome: 'CONFIRMED'
       }
     });
@@ -107,7 +110,7 @@ export async function POST(
   const updatedOrder = await prisma.$transaction(async (tx) => {
     // Update the order
     const updated = await tx.order.update({
-      where: { id: params.id },
+      where: { id: orderId },
       data: { status: nextStatus },
       include: {
         customer: {
@@ -129,7 +132,7 @@ export async function POST(
     // Create status change record
     await tx.orderStatusChange.create({
       data: {
-        orderId: params.id,
+        orderId: orderId,
         from: order.status,
         to: nextStatus,
         changedById: user.id,

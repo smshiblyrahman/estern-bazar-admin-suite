@@ -5,7 +5,7 @@ import { createAuditLog } from '@/lib/audit';
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { user } = await requireAuth();
@@ -17,6 +17,7 @@ export async function POST(
 
     const body = await req.json();
     const { agentId, note } = body;
+    const { id: orderId } = await params;
 
     if (!agentId) {
       return NextResponse.json({ error: 'Agent ID is required' }, { status: 400 });
@@ -24,7 +25,7 @@ export async function POST(
 
     // Verify order exists and is in correct status
     const order = await prisma.order.findUnique({
-      where: { id: params.id },
+      where: { id: orderId },
       include: { customer: true },
     });
 
@@ -56,7 +57,7 @@ export async function POST(
     const updatedOrder = await prisma.$transaction(async (tx) => {
       // Update order
       const updated = await tx.order.update({
-        where: { id: params.id },
+        where: { id: orderId },
         data: {
           callAssignedToId: agentId,
           callAssignedById: user.id,
@@ -75,7 +76,7 @@ export async function POST(
       // Log status change
       await tx.orderStatusChange.create({
         data: {
-          orderId: params.id,
+          orderId: orderId,
           from: 'PENDING',
           to: 'CALL_ASSIGNED',
           changedById: user.id,
@@ -90,7 +91,7 @@ export async function POST(
       actorId: user.id,
       action: 'ORDER_CALL_ASSIGNED',
       targetType: 'Order',
-      targetId: params.id,
+      targetId: orderId,
       metadata: {
         agentId,
         agentName: callAgent.name,

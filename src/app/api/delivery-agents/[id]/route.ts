@@ -16,13 +16,14 @@ const updateDeliveryAgentSchema = z.object({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { user } = await requireAuth();
   assertAdminOrSuper(user.role);
 
+  const { id } = await params;
   const agent = await prisma.deliveryAgent.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       orders: {
         include: {
@@ -53,11 +54,12 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { user } = await requireAuth();
   assertAdminOrSuper(user.role);
 
+  const { id } = await params;
   const body = await request.json();
 
   // Validate input
@@ -73,7 +75,7 @@ export async function PATCH(
 
   // Check if agent exists
   const existingAgent = await prisma.deliveryAgent.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: { id: true, name: true, phone: true }
   });
 
@@ -88,7 +90,7 @@ export async function PATCH(
       select: { id: true }
     });
 
-    if (phoneConflict && phoneConflict.id !== params.id) {
+    if (phoneConflict && phoneConflict.id !== id) {
       return NextResponse.json({ 
         error: 'Phone number already in use by another delivery agent' 
       }, { status: 409 });
@@ -97,7 +99,7 @@ export async function PATCH(
 
   // Update delivery agent
   const updatedAgent = await prisma.deliveryAgent.update({
-    where: { id: params.id },
+    where: { id },
     data,
     include: {
       _count: {
@@ -128,14 +130,15 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { user } = await requireAuth();
   assertAdminOrSuper(user.role);
 
+  const { id } = await params;
   // Check if agent exists
   const agent = await prisma.deliveryAgent.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: { 
       id: true, 
       name: true,
@@ -164,7 +167,7 @@ export async function DELETE(
 
   // Delete delivery agent
   await prisma.deliveryAgent.delete({
-    where: { id: params.id }
+    where: { id }
   });
 
   // Create audit log

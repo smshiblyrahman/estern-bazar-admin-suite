@@ -6,9 +6,10 @@ import { createAuditLog } from '@/lib/audit';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { user } = await requireAuth();
+    const { id: orderId } = await params;
   assertAdminOrSuper(user.role);
 
   const body = await request.json();
@@ -26,7 +27,7 @@ export async function POST(
 
   // Check if order exists
   const order = await prisma.order.findUnique({
-    where: { id: params.id },
+    where: { id: orderId },
     select: { 
       id: true, 
       status: true, 
@@ -72,7 +73,7 @@ export async function POST(
   const updatedOrder = await prisma.$transaction(async (tx) => {
     // Update the order
     const updated = await tx.order.update({
-      where: { id: params.id },
+      where: { id: orderId },
       data: { 
         deliveryAgentId: data.deliveryAgentId,
         estimatedDeliveryDate: data.estimatedDeliveryDate ? new Date(data.estimatedDeliveryDate) : null,
@@ -98,7 +99,7 @@ export async function POST(
     // Create status change record
     await tx.orderStatusChange.create({
       data: {
-        orderId: params.id,
+        orderId: orderId,
         fromStatus: order.status,
         toStatus: order.status, // Status doesn't change, just assignment
         reason: `Delivery agent assigned: ${agent.name}${data.notes ? ` - ${data.notes}` : ''}`,

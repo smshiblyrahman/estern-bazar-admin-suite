@@ -7,9 +7,12 @@ import bcrypt from 'bcrypt';
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { user } = await requireAuth();
+    const { id: userId } = await params;
+    const { id: productId } = await params;
+    const { id: orderId } = await params;
   assertAdminOrSuper(user.role);
   
   const body = await req.json();
@@ -24,7 +27,7 @@ export async function POST(
   }
 
   const targetUser = await prisma.user.findUnique({
-    where: { id: params.id },
+    where: { id: orderId },
     select: { id: true, role: true, email: true, name: true },
   });
 
@@ -41,7 +44,7 @@ export async function POST(
   const passwordHash = await bcrypt.hash(tempPassword, 10);
 
   await prisma.user.update({
-    where: { id: params.id },
+    where: { id: orderId },
     data: {
       passwordHash,
       forcePasswordReset: true, // Force password change on next login

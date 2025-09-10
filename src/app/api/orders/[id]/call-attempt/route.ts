@@ -11,10 +11,13 @@ const createCallAttemptSchema = z.object({
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { user } = await requireAuth();
+    const { id: userId } = await params;
+    const { id: productId } = await params;
+    const { id: orderId } = await params;
     
     const body = await req.json();
     const validation = createCallAttemptSchema.safeParse(body);
@@ -30,7 +33,7 @@ export async function POST(
 
     // Verify order exists
     const order = await prisma.order.findUnique({
-      where: { id: params.id },
+      where: { id: orderId },
       include: { 
         customer: true,
         callAssignedTo: { select: { name: true, email: true } }
@@ -63,7 +66,7 @@ export async function POST(
       // Create call attempt
       const callAttempt = await tx.callAttempt.create({
         data: {
-          orderId: params.id,
+          orderId: orderId,
           agentId: user.id,
           outcome: data.outcome,
           notes: data.notes,
@@ -108,14 +111,14 @@ export async function POST(
         }
 
         await tx.order.update({
-          where: { id: params.id },
+          where: { id: orderId },
           data: updateData,
         });
 
         // Log status change
         await tx.orderStatusChange.create({
           data: {
-            orderId: params.id,
+            orderId: orderId,
             from: order.status,
             to: newOrderStatus as any,
             changedById: user.id,
@@ -131,7 +134,7 @@ export async function POST(
       actorId: user.id,
       action: 'ORDER_CALL_ATTEMPT',
       targetType: 'Order',
-      targetId: params.id,
+      targetId: orderId,
       metadata: {
         outcome: data.outcome,
         notes: data.notes,

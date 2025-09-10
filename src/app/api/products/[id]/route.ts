@@ -5,12 +5,15 @@ import { updateProductSchema } from '@/lib/validators/product';
 import { createAuditLog } from '@/lib/audit';
 import { generateSlug, ensureUniqueSlug } from '@/lib/utils/slug';
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const { user } = await requireAuth();
+    const { id: userId } = await params;
+    const { id: productId } = await params;
+    const { id: orderId } = await params;
   assertAdminOrSuper(user.role);
   
   const product = await prisma.product.findUnique({ 
-    where: { id: params.id }, 
+    where: { id: orderId }, 
     include: { 
       media: {
         orderBy: { position: 'asc' }
@@ -28,8 +31,11 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   return NextResponse.json(product);
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { user } = await requireAuth();
+    const { id: userId } = await params;
+    const { id: productId } = await params;
+    const { id: orderId } = await params;
   assertAdminOrSuper(user.role);
   const body = await req.json();
 
@@ -46,7 +52,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   // Check if product exists
   const existingProduct = await prisma.product.findUnique({
-    where: { id: params.id },
+    where: { id: orderId },
     select: { id: true, title: true, slug: true }
   });
 
@@ -63,9 +69,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       baseSlug,
       async (slug) => {
         const existing = await prisma.product.findUnique({ where: { slug } });
-        return existing ? existing.id !== params.id : false;
+        return existing ? existing.id !== orderId : false;
       },
-      params.id
+      orderId
     );
   }
 
@@ -81,7 +87,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 
   const updated = await prisma.product.update({ 
-    where: { id: params.id }, 
+    where: { id: orderId }, 
     data: updateData,
     include: {
       media: {
@@ -109,13 +115,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   return NextResponse.json(updated);
 }
 
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const { user } = await requireAuth();
+    const { id: userId } = await params;
+    const { id: productId } = await params;
+    const { id: orderId } = await params;
   assertAdminOrSuper(user.role);
 
   // Check if product exists
   const product = await prisma.product.findUnique({
-    where: { id: params.id },
+    where: { id: orderId },
     select: { id: true, title: true, slug: true }
   });
 
@@ -124,7 +133,7 @@ export async function DELETE(_: Request, { params }: { params: { id: string } })
   }
 
   // Delete product and its media (cascade should handle this)
-  await prisma.product.delete({ where: { id: params.id } });
+  await prisma.product.delete({ where: { id: orderId } });
 
   // Create audit log
   await createAuditLog({

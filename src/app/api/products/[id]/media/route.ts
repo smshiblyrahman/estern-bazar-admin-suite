@@ -6,14 +6,17 @@ import { createAuditLog } from '@/lib/audit';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { user } = await requireAuth();
+    const { id: userId } = await params;
+    const { id: productId } = await params;
+    const { id: orderId } = await params;
     assertAdminOrSuper(user.role);
 
     const media = await prisma.productMedia.findMany({
-      where: { productId: params.id },
+      where: { productId: orderId },
       orderBy: { position: 'asc' },
     });
 
@@ -26,10 +29,13 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { user } = await requireAuth();
+    const { id: userId } = await params;
+    const { id: productId } = await params;
+    const { id: orderId } = await params;
     assertAdminOrSuper(user.role);
 
     const body = await request.json();
@@ -44,7 +50,7 @@ export async function POST(
 
     // Check if product exists
     const product = await prisma.product.findUnique({
-      where: { id: params.id },
+      where: { id: orderId },
       select: { id: true, title: true }
     });
 
@@ -57,7 +63,7 @@ export async function POST(
     // If no position specified, add to end
     if (data.position === 0) {
       const lastMedia = await prisma.productMedia.findFirst({
-        where: { productId: params.id },
+        where: { productId: orderId },
         orderBy: { position: 'desc' },
         select: { position: true }
       });
@@ -67,7 +73,7 @@ export async function POST(
     const media = await prisma.productMedia.create({
       data: {
         ...data,
-        productId: params.id,
+        productId: orderId,
       },
     });
 
@@ -78,7 +84,7 @@ export async function POST(
       targetType: 'ProductMedia',
       targetId: media.id,
       metadata: { 
-        productId: params.id,
+        productId: orderId,
         productTitle: product.title,
         mediaUrl: data.url,
         mediaType: data.type,
@@ -94,10 +100,13 @@ export async function POST(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { user } = await requireAuth();
+    const { id: userId } = await params;
+    const { id: productId } = await params;
+    const { id: orderId } = await params;
     assertAdminOrSuper(user.role);
 
     const body = await request.json();
@@ -111,7 +120,7 @@ export async function PATCH(
     const updatedMedia = await prisma.$transaction(
       mediaUpdates.map(update => 
         prisma.productMedia.update({
-          where: { id: update.id, productId: params.id },
+          where: { id: update.id, productId: orderId },
           data: {
             position: update.position,
             altText: update.altText,
@@ -125,9 +134,9 @@ export async function PATCH(
       actorId: user.id,
       action: 'UPDATE',
       targetType: 'ProductMedia',
-      targetId: params.id,
+      targetId: orderId,
       metadata: { 
-        productId: params.id,
+        productId: orderId,
         updatedCount: mediaUpdates.length,
       },
     });

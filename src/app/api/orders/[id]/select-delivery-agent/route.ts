@@ -5,10 +5,13 @@ import { createAuditLog } from '@/lib/audit';
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { user } = await requireAuth();
+    const { id: userId } = await params;
+    const { id: productId } = await params;
+    const { id: orderId } = await params;
     assertAdminOrSuper(user.role);
 
     const body = await req.json();
@@ -20,7 +23,7 @@ export async function POST(
 
     // Verify order exists and is in correct status
     const order = await prisma.order.findUnique({
-      where: { id: params.id },
+      where: { id: orderId },
       include: { customer: true },
     });
 
@@ -48,7 +51,7 @@ export async function POST(
     const updatedOrder = await prisma.$transaction(async (tx) => {
       // Update order
       const updated = await tx.order.update({
-        where: { id: params.id },
+        where: { id: orderId },
         data: {
           selectedDeliveryAgentId: agentId,
           status: 'DELIVERY_AGENT_SELECTED',
@@ -65,7 +68,7 @@ export async function POST(
       // Log status change
       await tx.orderStatusChange.create({
         data: {
-          orderId: params.id,
+          orderId: orderId,
           from: 'PACKED',
           to: 'DELIVERY_AGENT_SELECTED',
           changedById: user.id,
@@ -80,7 +83,7 @@ export async function POST(
       actorId: user.id,
       action: 'ORDER_DELIVERY_SELECTED',
       targetType: 'Order',
-      targetId: params.id,
+      targetId: orderId,
       metadata: {
         agentId,
         agentName: deliveryAgent.name,
