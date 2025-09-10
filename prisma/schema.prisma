@@ -55,6 +55,12 @@ enum DeliveryStatus {
   OFFLINE
 }
 
+enum SignupRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id              String      @id @default(cuid())
   email           String      @unique
@@ -75,6 +81,7 @@ model User {
   visits        VisitEvent[]
   auditLogs     AuditLog[]    @relation("AuditActor")
   orderStatusChanges OrderStatusChange[]
+  signupRequestsReviewed SignupRequest[] @relation("SignupRequestReviewer")
   
   // Call agent relations
   callAttempts CallAttempt[]
@@ -213,6 +220,25 @@ model VisitEvent {
   ipHash    String?
   createdAt DateTime @default(now())
 
+  @@index([createdAt])
+}
+
+model SignupRequest {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  phone         String
+  requestedRole Role
+  reason        String
+  status        SignupRequestStatus @default(PENDING)
+  reviewedById  String?
+  reviewedBy    User?    @relation("SignupRequestReviewer", fields: [reviewedById], references: [id])
+  reviewedAt    DateTime?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status])
   @@index([createdAt])
 }
 
